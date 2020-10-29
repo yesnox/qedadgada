@@ -1,0 +1,670 @@
+local ref = gui.Reference("MISC", "Enhancement")
+local Group = gui.Groupbox(ref, "multi-lua", 327, 315, 297)
+
+local ref = gui.Reference("Misc", "Enhancement", "multi-lua")
+local cb = gui.Checkbox(ref, "rbot_revolver_autocock_ex", "Custom Auto-Revolver", false)
+local cockspeed = gui.Slider(ref, "rbot_revolver_autocock_ex_speed", "Auto-Revolver speed", 1, 1, 50)
+local delay = gui.Slider(ref, "rbot_revolver_autocock_ex_delay", "Auto-Revolver delay", 0, 0, 50)
+
+local function on_create_move(cmd)
+   local me = entities.GetLocalPlayer()
+gui.SetValue("rbot.aim.automation.revolver", false)
+
+   if cb:GetValue() and me ~= nil and me:GetHealth() > 0 then
+ 
+		
+       if bit.band(cmd:GetButtons(), bit.lshift(1, 0)) > 0 then
+           return
+       end
+
+       local wep = me:GetPropEntity("m_hActiveWeapon")
+
+       if wep:GetClass() == "CDEagle" and wep:GetWeaponID() == 64 then
+           cmd:SetButtons(bit.bor(cmd:GetButtons(), bit.lshift(1, 0)))
+
+           local m_flPostponeFireReadyTime = wep:GetPropFloat("m_flPostponeFireReadyTime")
+           if m_flPostponeFireReadyTime > 0 and m_flPostponeFireReadyTime - (cockspeed:GetValue() / 100) < globals.CurTime() then
+               cmd:SetButtons(bit.band(cmd:GetButtons(), bit.bnot(bit.lshift(1, 0))))
+
+               if m_flPostponeFireReadyTime + globals.TickInterval() * 16 + (delay:GetValue() / 100) > globals.CurTime() then
+                    cmd:SetButtons(bit.bor(cmd:GetButtons(), bit.lshift(1, 11)))
+               end
+           end
+       end
+   end
+end
+
+callbacks.Register("CreateMove", on_create_move)
+
+local reference = gui.Reference("Misc", "Enhancement", "multi-lua");
+local exposure = gui.Slider(reference, "nex_bloom_exposure", "Night Mode", 100, 1, 100);
+callbacks.Register("Draw", "Night Mode", function()
+local controller = entities.FindByClass("CEnvTonemapController")[1];
+if(controller) then
+controller:SetProp("m_bUseCustomAutoExposureMin", 1);
+controller:SetProp("m_bUseCustomAutoExposureMax", 1);
+
+controller:SetProp("m_flCustomAutoExposureMin", exposure:GetValue()/100);
+controller:SetProp("m_flCustomAutoExposureMax", exposure:GetValue()/100);
+end
+end)
+
+local font = draw.CreateFont('Verdana', 12);
+ 
+callbacks.Register("Draw", function()
+    if (watermark:GetValue() ~= true) then
+        return
+    end
+    local lp = entities.GetLocalPlayer();
+    local playerResources = entities.GetPlayerResources();
+ 
+    -- do not edit above
+ 
+    local divider = ' | ';
+    local cheatName = 'aimware';
+    local indexlp = client.GetLocalPlayerIndex()
+    local userName = client.GetPlayerNameByIndex(indexlp);
+    
+    -- Do not edit below
+    local delay;
+    local tick;
+  
+    if (lp ~= nil) then
+        delay = 'delay: ' .. playerResources:GetPropInt("m_iPing", lp:GetIndex()) .. 'ms';
+        tick = math.floor(lp:GetProp("localdata", "m_nTickBase") + 0x20) .. 'tick';
+    end
+    local watermarkText = cheatName .. divider .. userName .. divider;
+    if (delay ~= nil) then
+        watermarkText = watermarkText .. delay .. divider;
+    end
+    if (tick ~= nil) then
+        watermarkText = watermarkText .. tick;
+    end 
+    draw.SetFont(font);
+    local w, h = draw.GetTextSize(watermarkText);
+    local weightPadding, heightPadding = 20, 15;
+    local watermarkWidth = weightPadding + w;
+    local start_x, start_y = draw.GetScreenSize();
+    start_x, start_y = start_x - watermarkWidth - 20, start_y * 0.0125;
+    draw.Color(0, 0, 0, 150);
+    draw.FilledRect(start_x + 10, start_y, start_x + watermarkWidth , start_y -5 + h + heightPadding);
+ 
+    draw.Color(0, 0, 0, 255)
+    draw.Text(start_x + weightPadding / 2+5, start_y + heightPadding / 2 - 2, watermarkText );
+ 
+    draw.Color(255,255,255,255);
+    draw.Text(start_x + weightPadding / 2+6, start_y + heightPadding / 2 - 3, watermarkText );
+ 
+ 
+    draw.Color(255, 0, 0, 255);
+    draw.FilledRect(start_x+10, start_y, start_x + watermarkWidth , start_y +1);
+end)
+ 
+------------------------------------------------------------
+--DrawUI
+------------------------------------------------------------
+function DrawUI()
+    watermark = gui.Checkbox(gui.Reference("Misc", "Enhancement", "multi-lua"),"watermark","Show Watermark",0);
+    watermark:SetDescription("Shows watermark AIMWARE.net.");
+end
+DrawUI();
+
+local mouseX, mouseY, x, y, dx, dy, w, h = 0, 0, 25, 660, 0, 0, 300, 60;
+local shouldDrag = false;
+local font = draw.CreateFont("Verdana", 12, 12);
+local topbarSize = 20;
+local svgData = http.Get( "http://eaassets-a.akamaihd.net/battlelog/prod/emblem/325/83/320/2955057809976353965.png" );
+local imgRGBA, imgWidth, imgHeight = common.DecodePNG( svgData );
+local texture = draw.CreateTexture( imgRGBA, imgWidth, imgHeight );
+local render = {};
+
+render.outline = function( x, y, w, h, col )
+    draw.Color( col[1], col[2], col[3], col[4] );
+    draw.OutlinedRect( x, y, x + w, y + h );
+end
+render.rect = function( x, y, w, h, col )
+    draw.Color( col[1], col[2], col[3], col[4] );
+    --draw.FilledRect( x, y, x + w, y + h );
+end
+render.rect2 = function( x, y, w, h )
+    draw.FilledRect( x, y, x + w, y + h );
+end
+render.gradient = function( x, y, w, h, col1, col2, is_vertical )
+    render.rect( x, y, w, h, col1 );
+
+    local r, g, b = col2[1], col2[2], col2[3];
+
+    if is_vertical then
+        for i = 1, h do
+            local a = i / h * 255;
+            render.rect( x, y + i, w, 1, { r, g, b, a } );
+        end
+    else
+        for i = 1, w do
+            local a = i / w * 255;
+            render.rect( x + i, y, 1, h, { r, g, b, a } );
+        end
+    end
+end
+
+local function getKeybinds()
+    local Keybinds = {};
+    local i = 1;
+
+    hLocalPlayer = entities.GetLocalPlayer();
+    wid = hLocalPlayer:GetWeaponID()
+---------------------------
+if gui.GetValue("lbot.master") and input.IsButtonDown(gui.GetValue("lbot.trg.key")) then
+    Keybinds[i] = 'Triggerbot';
+        i = i + 1;
+    end
+if gui.GetValue("lbot.master") and gui.GetValue("lbot.antiaim.type") ~= '"Off"' then
+    Keybinds[i] = 'Legit AA';
+        i = i + 1;
+    end
+if gui.GetValue("lbot.master") and gui.GetValue("lbot.extra.knifetrigger") then
+    Keybinds[i] = 'Knifebot';
+        i = i + 1;
+    end
+if gui.GetValue("lbot.master") and gui.GetValue("misc.fakelag.enable") then
+    Keybinds[i] = 'Fakelag';
+        i = i + 1;
+    end
+---------------------------
+if gui.GetValue("rbot.master") and (wid == 1 or wid == 64) and gui.GetValue("rbot.accuracy.weapon.hpistol.doublefire") ~= 0 then
+    Keybinds[i] = 'Doubletap';
+        i = i + 1;
+elseif gui.GetValue("rbot.master") and (wid == 2 or wid == 3 or wid == 4 or wid == 30 or wid == 32 or wid == 36 or wid == 61 or wid == 63) and gui.GetValue("rbot.accuracy.weapon.pistol.doublefire") ~= 0 then
+    Keybinds[i] = 'Doubletap';
+        i = i + 1;
+    elseif gui.GetValue("rbot.master") and (wid == 7 or wid == 8 or wid == 10 or wid == 13 or wid == 16 or wid == 39 or wid == 60) and gui.GetValue("rbot.accuracy.weapon.rifle.doublefire") ~= 0 then
+    Keybinds[i] = 'Doubletap';
+        i = i + 1;
+elseif gui.GetValue("rbot.master") and (wid == 11 or wid == 38) and gui.GetValue("rbot.accuracy.weapon.asniper.doublefire") ~= 0 then
+    Keybinds[i] = 'Doubletap';
+        i = i + 1;
+elseif gui.GetValue("rbot.master") and (wid == 17 or wid == 19 or wid == 23 or wid == 24 or wid == 26 or wid == 33 or wid == 34) and gui.GetValue("rbot.accuracy.weapon.smg.doublefire") ~= 0 then
+    Keybinds[i] = 'Doubletap';
+        i = i + 1;
+elseif gui.GetValue("rbot.master") and (wid == 14 or wid == 28) and gui.GetValue("rbot.accuracy.weapon.lmg.doublefire") ~= 0 then
+    Keybinds[i] = 'Doubletap';
+        i = i + 1;
+elseif gui.GetValue("rbot.master") and (wid == 25 or wid == 27 or wid == 29 or wid == 35) and gui.GetValue("rbot.accuracy.weapon.shotgun.doublefire") ~= 0 then
+    Keybinds[i] = 'Doubletap';
+        i = i + 1;
+    end
+    if gui.GetValue("rbot.master") and gui.GetValue("rbot.accuracy.movement.slowkey") ~= 0 and input.IsButtonDown(gui.GetValue("rbot.accuracy.movement.slowkey")) then
+    Keybinds[i] = 'Slowwalk';
+        i = i + 1;
+    end
+if gui.GetValue("rbot.master") and (gui.GetValue("rbot.antiaim.fakeyawstyle") == 2 or gui.GetValue("rbot.antiaim.fakeyawstyle") == 4) then
+    Keybinds[i] = 'AA inverter';
+        i = i + 1;
+    end
+if gui.GetValue("rbot.master") and gui.GetValue("rbot.antiaim.extra.fakecrouchkey") ~= 0 and input.IsButtonDown(gui.GetValue("rbot.antiaim.extra.fakecrouchkey")) then
+    Keybinds[i] = 'Fake Duck';
+        i = i + 1;
+    end
+if gui.GetValue("rbot.master") and gui.GetValue("rbot.antiaim.extra.shiftonshot") then
+    Keybinds[i] = 'Hide Shots';
+        i = i + 1;
+    end
+if gui.GetValue("esp.master") and gui.GetValue("esp.local.thirdperson") then
+    Keybinds[i] = 'Thirdperson';
+        i = i + 1;
+    end
+---------------------------
+if gui.GetValue("misc.fakelatency.key") == 0 then
+if gui.GetValue("misc.master") and gui.GetValue("misc.fakelatency.enable") then
+    Keybinds[i] = 'Fakelatency';
+        i = i + 1;
+    end
+elseif gui.GetValue("misc.fakelatency.key") ~= 0 then
+if gui.GetValue("misc.master") and gui.GetValue("misc.fakelatency.enable") and input.IsButtonDown(gui.GetValue("misc.fakelatency.key")) then
+    Keybinds[i] = 'Fakelatency';
+        i = i + 1;
+    end
+end
+
+    return Keybinds;
+end
+
+local function drawkeybinds(Keybinds)
+    local temp = false;
+    for index in pairs(Keybinds) do
+        
+        if (temp) then
+            render.gradient( x+9, (y + topbarSize + 5) + (index * 15), 198, 1, { 13, 14, 15, 255 }, {40, 30, 30, 255 }, false );
+        end
+        temp=true;
+        draw.SetFont(font);
+        draw.Color(0, 0, 0, 200);
+        draw.Text(x + 10, (y + topbarSize + 5) + (index * 15), Keybinds[index])
+        draw.Text(x + 85, (y + topbarSize + 5) + (index * 15), "[active]")
+
+        draw.SetFont(font);
+        draw.Color(255, 255, 255, 255);
+        draw.Text(x + 84, (y + topbarSize + 4) + (index * 15), "[active]")
+        draw.Text(x + 9, (y + topbarSize + 4) + (index * 15), Keybinds[index])
+    end
+end
+
+local function drawRectFill(r, g, b, a, x, y, w, h, texture)
+    if (texture ~= nil) then
+        draw.SetTexture(texture);
+    else
+        draw.SetTexture(texture);
+    end
+    draw.Color(r, g, b, a);
+    draw.FilledRect(x, y, x + w, y + h);
+end
+
+
+local function dragFeature()
+    if input.IsButtonDown(1) then
+        mouseX, mouseY = input.GetMousePos();
+        if shouldDrag then
+            x = mouseX - dx;
+            y = mouseY - dy;
+        end
+        if mouseX >= x and mouseX <= x + w and mouseY >= y and mouseY <= y + 40 then
+            shouldDrag = true;
+            dx = mouseX - x;
+            dy = mouseY - y;
+        end
+    else
+        shouldDrag = false;
+    end
+end
+
+local function drawOutline(r, g, b, a, x, y, w, h, howMany)
+    for i = 1, howMany do
+        draw.Color(r, g, b, a);
+        draw.OutlinedRect(x - i, y - i, x + w + i, y + h + i);
+    end
+end
+
+local function drawWindow(Keybinds)
+    local tW, _ = draw.GetTextSize(keytext);
+    local h2 = 5 + (Keybinds * 15);
+    local h = h + (Keybinds * 15);
+    
+    drawRectFill(255, 0, 0, 200, x + 7, y + 21, 121, 1);
+    drawRectFill(255, 0, 0, 255, x + 7, y + 20, 121, 1);
+    drawRectFill(0, 0, 0, 150, x + 7, y + 22, 121, 14);
+
+    draw.Color(0, 0, 0, 255);
+    draw.SetFont(font);
+    local keytext = 'Keybinds';
+    
+    draw.Text(x + ((85 - tW) / 2), y + 25, keytext)
+
+    draw.Color(255, 255, 255, 255);
+    draw.SetFont(font);
+    
+    draw.Text(x + ((84 - tW) / 2), y + 24, keytext)
+    
+    draw.Color(255, 255, 255);
+    draw.SetTexture( texture );
+
+    
+end
+
+callbacks.Register("Draw", function()
+    if keybindlist:GetValue() == false then return end
+    if not entities.GetLocalPlayer() or not entities.GetLocalPlayer():IsAlive() then return end
+
+    draw.SetTexture( texture );
+    local Keybinds = getKeybinds();
+    drawWindow(#Keybinds);
+
+    drawkeybinds(Keybinds);
+    dragFeature();
+end)
+------------------------------------------------------------
+--DrawUI
+------------------------------------------------------------
+
+function DrawUI()
+keybindlist = gui.Checkbox(gui.Reference("Misc", "Enhancement", "multi-lua"),"keybindlist","Show Keybinds",0);
+keybindlist:SetDescription("Shows a list of active keybinds.");
+end
+DrawUI();
+
+
+local ref = gui.Reference( "Misc", "Enhancement", "multi-lua" );
+local lua_slider = gui.Slider( ref, "lua_healthshot_slider", "Healthshot on Kill", 1, 1, 10 );
+function HealthshotEffect( Event, Entity )
+if ( Event:GetName() == 'player_death' ) then
+    local ME = client.GetLocalPlayerIndex();
+    local INT_UID = Event:GetInt( 'userid' );
+    local INT_ATTACKER = Event:GetInt( 'attacker' );
+    local NAME_Victim = client.GetPlayerNameByUserID( INT_UID );
+    local INDEX_Victim = client.GetPlayerIndexByUserID( INT_UID );
+    local NAME_Attacker = client.GetPlayerNameByUserID( INT_ATTACKER );
+    local INDEX_Attacker = client.GetPlayerIndexByUserID( INT_ATTACKER );
+    if ( INDEX_Attacker == ME and INDEX_Victim ~= ME ) then
+    entities.GetLocalPlayer( ):SetProp( "m_flHealthShotBoostExpirationTime", globals.CurTime() + lua_slider:GetValue())
+    end
+end
+end
+
+client.AllowListener( 'player_death' );
+callbacks.Register( 'FireGameEvent', 'HealthshotEffect', HealthshotEffect )
+local client_SetConVar = client.SetConVar
+local ref = gui.Reference("Misc", "Enhancement", "multi-lua");
+local fullbright = gui.Checkbox(ref, "fulbright", "Full Bright", false)
+function full_bright()
+     if fullbright:GetValue() then client_SetConVar("mat_fullbright", 1, true);
+        else 
+     client_SetConVar("mat_fullbright", 0, true);
+     end 
+    end
+callbacks.Register('Draw', "FullBright" ,full_bright);
+
+local force_onshot
+do
+  local _with_0 = gui.Checkbox(gui.Reference("Misc", "Enhancement", "multi-lua"), "onshot", "Force onshot", false)
+  _with_0:SetDescription("Binding recommended will show enemys as friendlys")
+  force_onshot = _with_0
+end
+local onshotable = { }
+local changes = false
+local ApplyOnshots
+ApplyOnshots = function()
+  local lp = entities.GetLocalPlayer()
+  if force_onshot:GetValue() then
+    changes = true
+    local _list_0 = entities.FindByClass("CCSPlayer")
+    for _index_0 = 1, #_list_0 do
+      local player = _list_0[_index_0]
+      if player:GetProp("m_iPendingTeamNum") ~= lp:GetProp("m_iPendingTeamNum") then
+        if onshotable[player:GetIndex()] then
+          local has_onshot = onshotable[player:GetIndex()] > globals.CurTime()
+          if has_onshot then
+            player:SetProp("m_iTeamNum", player:GetProp("m_iPendingTeamNum"))
+          else
+            player:SetProp("m_iTeamNum", lp:GetProp("m_iTeamNum"))
+          end
+        else
+          player:SetProp("m_iTeamNum", lp:GetProp("m_iTeamNum"))
+        end
+      end
+    end
+  elseif changes then
+    changes = false
+    local _list_0 = entities.FindByClass("CCSPlayer")
+    for _index_0 = 1, #_list_0 do
+      local player = _list_0[_index_0]
+      player:SetProp("m_iTeamNum", player:GetProp("m_iPendingTeamNum"))
+    end
+  end
+end
+callbacks.Register("CreateMove", function(usercmd)
+  ApplyOnshots()
+  
+end)
+client.AllowListener("weapon_fire")
+callbacks.Register("FireGameEvent", function(event)
+  if event:GetName() ~= "weapon_fire" then
+    return 
+  end
+  local index = client.GetPlayerIndexByUserID(event:GetInt("userid"))
+  onshotable[index] = globals.CurTime() + 0.2
+end)
+
+local pos = gui.Reference("Misc", "Enhancement", "multi-lua")
+local enabled = gui.Checkbox(pos, "rbot_autoresolver", "Automatic Resolver", 0)
+local warningEnabled = gui.Checkbox(pos, "rbot_autoresolver_warning", "Desync Warning", 0)
+local listEnabled = gui.Checkbox(pos, "rbot_autoresolver_list", "Desync List", 0)
+
+--- Tables.
+local isDesyncing = {};
+local lastSimtime = {};
+local desyncCooldown = {};
+
+--- Variables
+local lastTick = 0;
+local pLocal = entities.GetLocalPlayer();
+local resolverTextCount = 0;
+local sampleTextWidth, sampleTextHeight
+
+
+--- Hooks
+local function drawHook()
+    pLocal = entities.GetLocalPlayer();
+
+    if listEnabled:GetValue() then
+
+        if engine.GetMapName() ~= "" then
+            draw.Text(2, 400, gui.GetValue("rbot.accuracy.posadj.resolver") and "Desyncing Players - Resolver: On" or "Desyncing Players - Resolver:  Off")
+        end
+        sampleTextWidth, sampleTextHeight = draw.GetTextSize("Sample Text")
+    end
+
+    if enabled:GetValue() then
+        resolverTextCount = 0;
+        for pEntityIndex, pEntity in pairs(entities.FindByClass("CCSPlayer")) do
+            if pEntity:GetTeamNumber() ~= pLocal:GetTeamNumber() and pEntity:IsPlayer() and pEntity:IsAlive() then
+                if globals.TickCount() > lastTick then
+                    if lastSimtime[pEntityIndex] ~= nil then
+                        if pEntity:GetProp("m_flSimulationTime") == lastSimtime[pEntityIndex] then
+                            isDesyncing[pEntityIndex] = true;
+                            desyncCooldown[pEntityIndex] = globals.TickCount();
+                        else
+                            if desyncCooldown[pEntityIndex] ~= nil then
+                                if desyncCooldown[pEntityIndex] < globals.TickCount() - 128 then
+                                    isDesyncing[pEntityIndex] = false;
+                                end
+                            else
+                                isDesyncing[pEntityIndex] = false;
+                            end
+                        end
+                    end
+                    lastSimtime[pEntityIndex] = pEntity:GetProp("m_flSimulationTime")
+                end
+
+                if engine.GetMapName() ~= "" then
+                    if isDesyncing[pEntityIndex] then
+                        if listEnabled:GetValue() then
+                            local pos = 410 + (sampleTextHeight * resolverTextCount)
+                            draw.Text(2, pos, pEntity:GetName())
+                        end
+                        resolverTextCount = resolverTextCount+1
+                    end
+                end
+            end
+        end
+        lastTick = globals.TickCount();
+        if resolverTextCount ~= 0 then
+            gui.SetValue("rbot.accuracy.posadj.resolver", 1);
+        else
+            gui.SetValue("rbot.accuracy.posadj.resolver", 0);
+        end
+    end
+end
+
+local function aimbotTargetHook(pEntity)
+    if enabled:GetValue() then
+
+        if not isDesyncing[pEntity:GetIndex()] then
+            gui.SetValue("rbot.accuracy.posadj.resolver", 1);
+        else
+            gui.SetValue("rbot.accuracy.posadj.resolver", 0);
+        end
+    end
+end
+
+local function drawEspHook(builder)
+
+    if warningEnabled:GetValue() then
+        local pEntity = builder:GetEntity()
+
+        if pEntity:IsPlayer() and pEntity:IsAlive() and pEntity:GetTeamNumber() ~= pLocal:GetTeamNumber() then
+
+            if isDesyncing[pEntity:GetIndex()] then
+                builder:Color(255, 25, 25, 255)
+                builder:AddTextBottom("Desync")
+            else
+                builder:Color(255, 255, 25, 255)
+                builder:AddTextBottom("No Desync")
+            end
+        end
+    end
+end
+
+--- Callbacks
+callbacks.Register("Draw", drawHook)
+callbacks.Register("AimbotTarget", aimbotTargetHook)
+callbacks.Register("DrawESP", drawEspHook) 
+
+local weapon_dt = {"pistol", "smg", "rifle", "shotgun", "asniper", "lmg",};
+local curr_dt, history = false, false;
+
+callbacks.Register("CreateMove", "dt check", function()
+    if weapon_dt[entities.GetLocalPlayer():GetWeaponType()] == nil then return; end;
+    curr_dt = gui.GetValue("rbot.accuracy.weapon." .. weapon_dt[entities.GetLocalPlayer():GetWeaponType()] .. ".doublefire") ~= 0;
+    if curr_dt == true then
+        history = true;
+        gui.SetValue("misc.fakelag.enable", 0);
+    elseif curr_dt == false and history == true then
+        if math.sqrt(entities.GetLocalPlayer():GetPropFloat( "localdata", "m_vecVelocity[0]" )^2 + entities.GetLocalPlayer():GetPropFloat( "localdata", "m_vecVelocity[1]" )^2) == 0 then
+            gui.SetValue("misc.fakelag.enable", 1);
+            history = false;
+        end;
+    end;
+end);
+
+local group = gui.Reference("Misc", "Enhancement", "multi-lua");
+local radiussl = gui.Slider(group, "hi_rad", "Radius", 30, 10, 100)
+local thicknesssl = gui.Slider(group, "hi_thickness", "Thickness", 6, 1, 50)
+local bgcp = gui.ColorPicker(group, "hi_bgclr", "Background Color", 0,0,0,0)
+local icp = gui.ColorPicker(group, "hi_iclr", "Indicator Color", 255,75,15,0)
+local shiftind = gui.Checkbox(group, "hi_shift", "Shift On Shot Indicator", 0)
+local dtind = gui.Checkbox(group, "hi_dt", "Double Tap Indicator", 0)
+local attind = gui.Checkbox(group, "hi_at", "At Targets Indicator", 0)
+
+local font = draw.CreateFont("Calibri", 22, 1000)
+
+local function circle()
+
+    local lp = entities.GetLocalPlayer()
+
+    if lp ~= nil and gui.GetValue("rbot.master") then
+
+        local headpos = lp:GetHitboxPosition(0)
+        local origin = lp:GetAbsOrigin()
+        local angle = (headpos - origin):Angles()
+        local cam_angle = engine.GetViewAngles()
+        local diff = cam_angle.y - angle.y
+
+        local radius = radiussl:GetValue()
+        local thickness = thicknesssl:GetValue()
+        local bgr, bgg, bgb, bga = bgcp:GetValue()
+        local ir, ig, ib, ia = icp:GetValue()
+        if thickness > radius then
+            thickness = radius
+        end
+
+        local ang = (diff * -1)/8
+        if ang < 0 then ang = 22.5 + (22.5 - math.abs(ang)) end
+        
+        local x, y = draw.GetScreenSize()
+        x = x/2
+        y = y/2
+
+        for steps = 1, 45, 1 do
+
+            local sin_cur = math.sin(math.rad(steps * 8 + 180))
+            local sin_old = math.sin(math.rad(steps * 8 - 8 + 180))
+            local cos_cur = math.cos(math.rad(steps * 8 + 180))
+            local cos_old = math.cos(math.rad(steps * 8 - 8 + 180))
+            
+            local cur_point = nil;
+            local old_point = nil;
+
+            cur_point = {x + sin_cur * radius, y + cos_cur * radius};    
+            old_point = {x + sin_old * radius, y + cos_old * radius};
+
+            local cur_point2 = nil;
+            local old_point2 = nil;
+
+            cur_point2 = {x + sin_cur * (radius - thickness), y + cos_cur * (radius - thickness)};    
+            old_point2 = {x + sin_old * (radius - thickness), y + cos_old * (radius - thickness)};
+            
+            if steps >= ang - 2 and steps <= ang + 2 then
+                draw.Color(ir, ig, ib, ia)
+            else
+                draw.Color(bgr, bgg, bgb, bga)
+            end
+
+            if ang - 2 < 0 and steps >= 45 + (ang - 2) then
+                draw.Color(ir, ig, ib, ia)
+            end
+            if ang + 2 > 45 and steps <= (ang + 2) - 45 then
+                draw.Color(ir, ig, ib, ia)
+            end
+
+            draw.Triangle(cur_point[1], cur_point[2], old_point[1], old_point[2], old_point2[1], old_point2[2])
+            draw.Triangle(cur_point2[1], cur_point2[2], old_point2[1], old_point2[2], cur_point[1], cur_point[2])    
+        
+        end
+
+        local offset = 0
+        draw.SetFont(font)
+
+        if shiftind:GetValue() then
+            offset = offset + 1
+            if gui.GetValue("rbot.antiaim.extra.shiftonshot") then
+                draw.Color(ir, ig, ib, ia)
+            else
+                draw.Color(bgr, bgg, bgb, bga)
+            end
+            draw.TextShadow(x - draw.GetTextSize("SHIFT ON-SHOT")/2, y + radius + offset * 18, "SHIFT ON-SHOT")
+        end
+
+        if dtind:GetValue() then
+            offset = offset + 1
+            if gui.GetValue("rbot.accuracy.weapon.asniper.doublefire") ~= 0 then
+                draw.Color(ir, ig, ib, ia)
+            else
+                draw.Color(bgr, bgg, bgb, bga)
+            end
+            draw.TextShadow(x - draw.GetTextSize("DOUBLE TAP")/2, y + radius + offset * 18, "DOUBLE TAP")
+        end
+
+        if attind:GetValue() then
+            offset = offset + 1
+            if gui.GetValue("rbot.antiaim.attargets") ~= 0 then
+                draw.Color(ir, ig, ib, ia)
+            else
+                draw.Color(bgr, bgg, bgb, bga)
+            end
+            draw.TextShadow(x - draw.GetTextSize("AT TARGETS")/2, y + radius + offset * 18, "AT TARGETS")
+        end
+
+    end
+end
+
+callbacks.Register("Draw", circle)
+
+local ref = gui.Reference("Misc", "Enhancement", "multi-lua")
+local lua_checkbox = gui.Checkbox( ref, "lua_checkbox", "Fake Desync", false );
+
+callbacks.Register("Draw", function()
+
+if lua_checkbox:GetValue()  then
+if globals.TickCount() % 15== 2 then
+           gui.SetValue("rbot.antiaim.desync", 1)
+           gui.SetValue("rbot.antiaim.desyncleft", 1)
+           gui.SetValue("rbot.antiaim.desyncright", 1)
+           gui.SetValue("rbot.antiaim.yaw", 179)
+       else
+           gui.SetValue("rbot.antiaim.desync", 0)
+           gui.SetValue("rbot.antiaim.desyncleft", 0)
+           gui.SetValue("rbot.antiaim.desyncright", 0)
+           gui.SetValue("rbot.antiaim.yaw", 180)
+       end
+end
+end)
+
